@@ -1,0 +1,219 @@
+\documentclass{grattan}
+
+\ReportOrWorkingPaper{Working Paper}
+
+\addbibresource{bib/Grattan-Master-Bibliography.bib}
+
+\author{Lucille Danks and Hugh Parsonage}
+\title{Patterns of downsizing among pensioners}
+
+\GrattanReportNumber{2017-00}
+
+\acknowledgements{%
+This working paper was written by Lucille Danks and Hugh Parsonage.
+
+The opinions in this report are those of the authors and do not necessarily represent the views of Grattan Institute's founding members, affiliates, individual board members reference group members or reviewers.
+Any remaining errors or omissions are the responsibility of the authors.
+
+Grattan Institute is an independent think-tank focused on Australian public policy.
+Our work is independent, practical and rigorous.
+We aim to improve policy outcomes by engaging with both decision-makers and the community.
+
+For further information on the Institute's programs, or to join our mailing list, please go to: \textcolor{blue}{\url{http://www.grattan.edu.au/}}.
+
+{\footnotesize
+This report may be cited as:
+Lucille Danks and Hugh Parsonage\@. (2017). \emph{\mytitle}. Grattan Institute.
+
+ISBN: 978-1-925015-96-6
+
+All material published or otherwise created by Grattan Institute is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License\par
+}
+}
+
+\begin{document}
+
+\contentspage
+
+% These chunks setup knitr charts etc for nice interaction with LaTeX:
+<<knitrOpts, echo=FALSE, message=FALSE>>=
+library(knitr)
+if (!requireNamespace("grattanCharts", quietly = TRUE)) {
+  stop("Install grattanCharts:\n\t devtools::install_github('hughparsonage/grattanCharts') ")
+}
+# Fonts
+library(showtext)
+library(sysfonts)
+setup_knitr_for_grattex(bundle_chart_data = FALSE, error = TRUE)
+knitting <- function() isTRUE(getOption('knitr.in.progress'))
+@
+
+<<loadPackages, message=FALSE, cache=FALSE>>=
+if (!requireNamespace("hildaData", quietly = TRUE) || !requireNamespace("hildaExtra", quietly = TRUE)) {
+  message("The hildaData package provides the Combined_[a-o]15_c files as lazily loaded data.tables.")
+  stop("hildaData/hildaExtra not installed. See Hugh.")
+} 
+library(hildaData)
+library(hildaExtra)
+library(speedglm)
+library(grattan)
+library(viridis)
+library(lme4)
+library(testthat)
+library(fastmatch)
+library(dplyr)
+library(dtplyr)
+library(data.table)
+library(magrittr)
+library(rstanarm)
+options(mc.cores = 6L)
+library(ggrepel)
+library(ggplot2)
+library(bit64)
+
+# Resolve namespace clashes:
+coalesce <- function(...) dplyr::coalesce(...)
+select <- function(...) dplyr::select(...) # speedglm
+between <- function(...) data.table::between(...)
+year <- function(...) data.table::year(...)
+
+library(ggplot2)
+library(scales)
+library(xtable)
+options("xtable.tabular.environment" = "tabularx", 
+        "xtable.width" = "\\linewidth", 
+        "xtable.booktabs" = TRUE,
+        "xtable.include.rownames" = FALSE,
+        "xtable.floating" = FALSE,
+        "xtable.sanitize.text.function" = function(x) x, 
+        "scipen" = 50)
+@
+
+<<repl_minus>>=
+repl_minus <- function(x, minus = "\U2212"){
+  out <- gsub("^-", "", x)
+  out <- if_else(grepl("^-", x), paste0(minus, out), out)
+  out
+}
+@
+
+<<chart_percent>>=
+chart_percent <- function(x){
+  repl_minus(scales::percent(x))
+}
+@
+
+<<CHART-GEOM>>=
+the_base_size <- 20
+if (isTRUE(getOption('knitr.in.progress'))) {
+  the_base_size <- 20
+  helvet_path <- file.path(".", "logos", "Fonts", "helvetic")
+  
+  font.add("helvet", 
+           regular = file.path(helvet_path, "uhvr8a.pfb"), 
+           bold = file.path(helvet_path, "uhvb8a.pfb"), 
+           italic = file.path(helvet_path, "uhvro8a.pfb"))
+  
+  grplot <- function(...) {
+    grattanCharts::grplot(...) + 
+      theme_hugh(base_size = the_base_size, base_family = "helvet") + 
+      theme(axis.title.x = element_text(margin = ggplot2::margin(9, 0, 9, 0, "pt")),
+            strip.background = element_blank(),
+            strip.text = element_text(face = "bold"),
+            plot.margin = ggplot2::margin(9, 0, 9, 0, "pt"))
+  }
+  
+  ggplot <- function(...) ggplot2::ggplot(...) + theme(text = element_text(family = "helvet"))
+  
+  ggplot2::update_geom_defaults("text", new = list(size = the_base_size/(14/5), family = "helvet"))
+  ggplot2::update_geom_defaults("label", new = list(size = the_base_size/(14/5), family = "helvet"))
+  ggplot2::update_geom_defaults("line", list(fill = Orange, colour = Orange, size = 1.5))
+
+  theme_dark <- function(...) ggplot2::theme_dark(base_size = 20, base_family = "helvet")
+}
+@
+
+<<percent>>=
+percent <- function(x) paste0(formatC(x * 100, digits = 1, format = "f", flag = "0"), "\\%")
+@
+
+<<grplot_percent>>=
+grplot_percent <- function(x) if_else(x < 0, paste0("\u2212", scales::percent(-x)), scales::percent(x))
+@
+
+
+% Actual analysis:
+<<house_movement_by_xwaveid>>=
+house_movement_by_xwaveid <-
+  lapply(1:15, function(y) {
+    wave <- letters[y]
+    yr <- y + 2000
+    
+    relevant_columns <- 
+      c("xwaveid",
+        paste0(wave, c("hhmove",   # moved house?
+                       "hsyrcad",  # Years at current address
+                       "hsvalui",  # house value
+                       "lnwte",    # Longitudindal weight
+                       "lslarea",  # Preference to continue living in area	
+                       "bncap",    # receives pension
+                       "bncapa"))) # pension amt
+    
+    new_names <- c("xwaveid",
+                   "moved_house",
+                   "years_at_current_address",
+                   "house_value",
+                   "WEIGHT",
+                   "want_to_stay_put",
+                   "receive_pension",
+                   "pension_amt")
+    
+    renamer <- data.table(relevant_columns = relevant_columns,
+                          new_names = new_names)
+    
+    select_relevant_columns <- function(DT) {
+      noms <- names(DT)
+      
+      intersection <- intersect(noms, relevant_columns)
+      if (length(intersection) > 0) {
+        out <-
+          DT %>%
+          .[, .SD, .SDcols = intersection] %>%
+          copy %>%
+          setnames(old = renamer[relevant_columns %in% intersection][["relevant_columns"]],
+                   new = renamer[relevant_columns %in% intersection][["new_names"]])
+      } else {
+        out <- data.table:::null.data.table()
+      }
+      return(out)
+    }
+    
+    get(paste0("Combined_", wave, "150c")) %>%
+      setDT %>%
+      select_relevant_columns %>%
+      .[, Year := yr]
+  }) %>%
+  rbindlist(use.names = TRUE, fill = TRUE) %>%
+  # 
+  .[, lapply(.SD, make_negatives_NA)] %>%
+  .[, moved_house := moved_house == "[1] Moved"] %>%
+  .[, receive_pension := grepl("[1]", receive_pension, fixed = TRUE)] %>%
+  .[WEIGHT > 0]
+@
+
+<<assets_test_by_year>>=
+assets_test_by_year <-
+  copy(grattan:::Age_pension_assets_test_by_year) %>%
+  mutate(Year = year(Date),
+         marital_status = gsub("^.*[Hh]omeowners", "", type, perl = TRUE),
+         is_homeowner = grepl("^Homeowner", type, perl = TRUE)) %>%
+  select(Year, marital_status, is_homeowner, assets_test) %>%
+  setDT %>%
+  setkey(Year, marital_status, is_homeowner) 
+@
+
+
+
+
+
+\end{document}

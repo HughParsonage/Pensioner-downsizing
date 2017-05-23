@@ -41,6 +41,7 @@ library(knitr)
 if (!requireNamespace("grattanCharts", quietly = TRUE)) {
   stop("Install grattanCharts:\n\t devtools::install_github('hughparsonage/grattanCharts') ")
 }
+library(grattanCharts)
 # Fonts
 library(showtext)
 library(sysfonts)
@@ -141,6 +142,16 @@ percent <- function(x) paste0(formatC(x * 100, digits = 1, format = "f", flag = 
 grplot_percent <- function(x) if_else(x < 0, paste0("\u2212", scales::percent(-x)), scales::percent(x))
 @
 
+<<coalesce_negatives>>=
+coalesce_negatives <- function(v) {
+  if (is.character(v) || is.factor(v)) {
+    if_else(grepl("^\\[-", v), NA_character_, as.character(v))
+  } else {
+    v
+  }
+}
+@
+
 
 % Actual analysis:
 <<house_movement_by_xwaveid>>=
@@ -151,18 +162,24 @@ house_movement_by_xwaveid <-
     
     relevant_columns <- 
       c("xwaveid",
-        paste0(wave, c("hhmove",   # moved house?
+        paste0(wave, c("hhrhid",   # household id
+                       "hgage",   # age
+                       "hhmove",   # moved house?
                        "hsyrcad",  # Years at current address
                        "hsvalui",  # house value
+                       "hsmgpd",   # Paid off mortgage?
                        "lnwte",    # Longitudindal weight
                        "lslarea",  # Preference to continue living in area	
                        "bncap",    # receives pension
                        "bncapa"))) # pension amt
     
     new_names <- c("xwaveid",
+                   "hh_id",
+                   "Age",
                    "moved_house",
                    "years_at_current_address",
                    "house_value",
+                   "mortgage_status",
                    "WEIGHT",
                    "want_to_stay_put",
                    "receive_pension",
@@ -179,7 +196,6 @@ house_movement_by_xwaveid <-
         out <-
           DT %>%
           .[, .SD, .SDcols = intersection] %>%
-          copy %>%
           setnames(old = renamer[relevant_columns %in% intersection][["relevant_columns"]],
                    new = renamer[relevant_columns %in% intersection][["new_names"]])
       } else {
@@ -194,9 +210,11 @@ house_movement_by_xwaveid <-
       .[, Year := yr]
   }) %>%
   rbindlist(use.names = TRUE, fill = TRUE) %>%
-  # 
   .[, lapply(.SD, make_negatives_NA)] %>%
+  .[, lapply(.SD, coalesce_negatives)] %>%
   .[, moved_house := moved_house == "[1] Moved"] %>%
+  setorder(xwaveid, Year) %>%
+  .[, moved_house_next_year := shift(moved_house, type = "lead"), by = xwaveid] %>%
   .[, receive_pension := grepl("[1]", receive_pension, fixed = TRUE)] %>%
   .[WEIGHT > 0]
 @
@@ -210,6 +228,35 @@ assets_test_by_year <-
   select(Year, marital_status, is_homeowner, assets_test) %>%
   setDT %>%
   setkey(Year, marital_status, is_homeowner) 
+@
+
+<<income_test_by_year>>=
+income_test_by_year <-
+  copy(grattan:::Age_pension_permissible_income_by_Date) %>%
+  setDT
+@
+
+<<income_test>>=
+income_test <- function(assets, income, year = 2016, marital_status = "single") {
+  deemed <- 0.0175 * (pmaxC(assets, 49200)) + 0.0325 * pmaxC(assets - 49200, 0)
+  deemed_per_fortnight <- deemed / 26.25
+  income_test_by_year %>% 
+    .[year(Date) %in% year] %>%
+    .[type %in% marital_status] %>%
+    .[["permissible_income"]] - deemed_per_fortnight
+  
+  
+}
+@
+
+<<stan_glm>>=
+house_movement_by_xwaveid %>% 
+  .[!is.na(moved_house_next_year)] %>% 
+  mutate(pension_amt = coalesce(pension_amt, 0L)) %>% 
+  sample_n(100e3) %>% 
+  stan_glm(as.numeric(moved_house_next_year) ~ mortgage_status + house_value + Age + pension_amt + want_to_stay_put, 
+           family = "binomial",
+           data= ., iter = 250, chains = 4) -> stan_glm_pension
 @
 
 

@@ -37,6 +37,10 @@ All material published or otherwise created by Grattan Institute is licensed und
 
 % These chunks setup knitr charts etc for nice interaction with LaTeX:
 <<knitrOpts, echo=FALSE, message=FALSE>>=
+if (!requireNamespace("knitr", quietly = TRUE)) {
+  install.packages(c("knitr", "showtext", "sysfonts", "devtools"))
+}
+library(devtools)
 library(knitr)
 if (!requireNamespace("grattanCharts", quietly = TRUE)) {
   stop("Install grattanCharts:\n\t devtools::install_github('hughparsonage/grattanCharts') ")
@@ -54,6 +58,9 @@ if (!requireNamespace("hildaData", quietly = TRUE) || !requireNamespace("hildaEx
   message("The hildaData package provides the Combined_[a-o]15_c files as lazily loaded data.tables.")
   stop("hildaData/hildaExtra not installed. See Hugh.")
 } 
+if (!requireNamespace("speedglm", quietly = TRUE)) {
+  install.packages(c("speedglm","grattan","viridis","lme4","testthat","fastmatch","dplyr","dtplyr","magrittr","rstanarm","ggrepel","ggplot2","bit64"))
+}
 library(hildaData)
 library(hildaExtra)
 library(speedglm)
@@ -228,6 +235,8 @@ assets_test_by_year <-
   select(Year, marital_status, is_homeowner, assets_test) %>%
   setDT %>%
   setkey(Year, marital_status, is_homeowner) 
+
+
 @
 
 <<income_test_by_year>>=

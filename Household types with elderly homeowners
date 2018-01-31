@@ -1,0 +1,38 @@
+"","Var1","Freq"
+"1","[-10] Non-responding person",0
+"2","[-9] Non-responding household",0
+"3","[-8] No SCQ",0
+"4","[-7] Not able to be determined",0
+"5","[-6] Implausible value",0
+"6","[-5] Multiple response SCQ",0
+"7","[-4] Refused/Not stated",0
+"8","[-3] Dont know",0
+"9","[-2] Not applicable",0
+"10","[-1] Not asked",0
+"11","[1] Couple family wo children or others",5146
+"12","[2] Couple family wo children w other related",152
+"13","[3] Couple family wo children w other not related",11
+"14","[4] Couple family with children < 15 wo others",98
+"15","[5] Couple family with children < 15 w other related",92
+"16","[6] Couple family with children < 15 w other not related",0
+"17","[7] Couple family with depst wo others",82
+"18","[8] Couple family with depst w other related",44
+"19","[9] Couple family with depst w other not related",0
+"20","[10] Couple family with ndepchild wo others",632
+"21","[11] Couple family with ndepchild w other related",41
+"22","[12] Couple family with ndepchild w other not related",9
+"23","[13] Lone parent with children < 15 wo others",9
+"24","[14] Lone parent with children < 15 w other related",38
+"25","[15] Lone parent with children < 15 w other not related",0
+"26","[16] Lone parent with depst wo others",13
+"27","[17] Lone parent with depst w other related",16
+"28","[18] Lone parent with depst w other not related",0
+"29","[19] Lone parent with ndepchild wo others",489
+"30","[20] Lone parent with ndepchild w other related",34
+"31","[21] Lone parent with ndepchild w other not related",6
+"32","[22] Other related family wo children < 15 or others",116
+"33","[23] Other related family wo children < 15 w others",0
+"34","[24] Lone person",2087
+"35","[25] Group household",80
+"36","[26] Multi family household",193
+"37","[99] Not yet classified",0

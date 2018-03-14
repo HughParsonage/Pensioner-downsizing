@@ -163,7 +163,7 @@ house_movement_by_xwaveid <-
     relevant_columns <- 
       c("xwaveid",
         paste0(wave, c("hhrhid",   # household id
-                       "hgage",   # age
+                       "hgage",    # age
                        "hhmove",   # moved house?
                        "hsyrcad",  # Years at current address
                        "hsvalui",  # house value
@@ -171,7 +171,8 @@ house_movement_by_xwaveid <-
                        "lnwte",    # Longitudindal weight
                        "lslarea",  # Preference to continue living in area	
                        "bncap",    # receives pension
-                       "bncapa"))) # pension amt
+                       "bncapa",
+                       "lshrcom"))) # pension amt
     
     new_names <- c("xwaveid",
                    "hh_id",
@@ -183,7 +184,8 @@ house_movement_by_xwaveid <-
                    "WEIGHT",
                    "want_to_stay_put",
                    "receive_pension",
-                   "pension_amt")
+                   "pension_amt",
+                   "commute_time")
     
     renamer <- data.table(relevant_columns = relevant_columns,
                           new_names = new_names)
